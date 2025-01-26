@@ -80,6 +80,7 @@ function updateImportDeclarations(
 }
 
 function migrate(migration: any, sourceFiles: SourceFile[], parsedCommandLine: ParsedCommandLine, projectRoot: string) {
+    // TODO: Add a flag in config to migrate as a folder or all directories in the folder
     const normalizedFrom = normalizePath(migration.from);
     const normalizedTo = normalizePath(migration.to);
     // Update the import declarations
