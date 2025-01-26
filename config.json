@@ -1,0 +1,13 @@
+{
+    "tsConfigPath": "C:/Users/parath.k/official/dummyProject/tsconfig.json",
+    "migrations": [
+        {
+            "from": "src\\app\\components\\posts\\components\\posts-header",
+            "to": "src\\app\\components\\posts"
+        },
+        {
+            "from": "src\\app\\components\\posts\\components\\posts-list",
+            "to": "src\\app\\components\\posts"
+        }
+    ]
+}
