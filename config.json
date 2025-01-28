@@ -3,11 +3,11 @@
     "migrations": [
         {
             "from": "src\\app\\components\\posts\\components\\posts-header",
-            "to": "src\\app\\components\\posts"
+            "to": "src\\app\\components"
         },
         {
             "from": "src\\app\\components\\posts\\components\\posts-list",
-            "to": "src\\app\\components\\posts"
+            "to": "src\\app\\components"
         }
     ]
 }

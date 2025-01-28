@@ -10,6 +10,17 @@ import {
     sys
 } from "typescript";
 import { readFileSync } from "fs";
+
+interface Migration {
+    from: string;
+    to: string;
+}
+
+interface Config {
+    tsConfigPath: string;
+    migrations: Migration[];
+}
+
 function normalizePath(path: string): string {
     return path.replace(/\\/g, "/");
 }
@@ -22,13 +33,28 @@ function moveFiles(oldPath: string, newPath: string, repoPath: string): void {
     }
 }
 function loadConfig(configPath: string) {
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    const config: Config = JSON.parse(readFileSync(configPath, "utf-8"));
     const projectRoot = dirname(config.tsConfigPath);
     const migrations = config.migrations;
     if (!migrations || migrations.length === 0) {
         throw new Error("Please provide both old and new folder paths in the config.");
     }
     return { projectRoot, migrations, tsConfigPath: config.tsConfigPath, tsConfig: readConfigFile(config.tsConfigPath, sys.readFile).config };
+}
+
+function updateRelativePathsToProjectRoot(
+    sourceFile: SourceFile,
+    projectRoot: string
+) {
+    const importDeclarations = sourceFile.getImportDeclarations();
+    importDeclarations.forEach(importDeclaration => {
+        const specifier = importDeclaration.getModuleSpecifierValue();
+        if (specifier.startsWith(".")) {
+            const absPath = join(dirname(sourceFile.getFilePath()), specifier);
+            const relativeToRoot = relative(projectRoot, absPath).replace(/\\/g, "/");
+            importDeclaration.setModuleSpecifier(relativeToRoot);
+        }
+    });
 }
 /**
  * Updates all import declarations in the given source files,
@@ -42,6 +68,11 @@ function updateImportDeclarations(
     newFolderPath: string
 ) {
     sourceFiles.forEach(sourceFile => {
+        const relativeSrcFilePath = normalizePath(
+            relative(projectRoot, sourceFile.getFilePath()));
+        if(relativeSrcFilePath.startsWith(oldFolderPath)){
+            updateRelativePathsToProjectRoot(sourceFile,projectRoot);
+       }
         const importDeclarations = sourceFile.getImportDeclarations();
         importDeclarations.forEach(importDeclaration => {
             const moduleSpecifier = importDeclaration.getModuleSpecifierValue();
@@ -77,14 +108,16 @@ function updateImportDeclarations(
             }
         });
     });
+    
 }
 
-function migrate(migration: any, sourceFiles: SourceFile[], parsedCommandLine: ParsedCommandLine, projectRoot: string) {
+function migrate(migration: Migration, parsedCommandLine: ParsedCommandLine, project: Project, projectRoot: string) {
     // TODO: Add a flag in config to migrate as a folder or all directories in the folder
     const normalizedFrom = normalizePath(migration.from);
     const normalizedTo = normalizePath(migration.to);
     // Update the import declarations
-    updateImportDeclarations(sourceFiles, parsedCommandLine, projectRoot, normalizedFrom, normalizedTo);
+    updateImportDeclarations(project.getSourceFiles(), parsedCommandLine, projectRoot, normalizedFrom, normalizedTo);
+    project.saveSync();
     // move files
     moveFiles(normalizedFrom, normalizedTo, projectRoot);
 }
@@ -98,18 +131,14 @@ function main() {
             sys,
             projectRoot
         );
-        // Get all source files in the project
-        const sourceFiles = project.getSourceFiles();
-        migrations.forEach((migration: any) => {
-            migrate(migration, sourceFiles, parsedCommandLine, projectRoot);
-        });
-
-        project.save().then(() => {
-            console.log("Imports updated successfully!");
+        migrations.forEach((migration) => {
+            migrate(migration, parsedCommandLine, project, projectRoot);
         });
     } catch (error) {
         console.error(error);
         process.exit(1);
     }
 }
+
+
 main();
